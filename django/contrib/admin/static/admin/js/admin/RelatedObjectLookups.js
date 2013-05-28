@@ -131,8 +131,8 @@ function dismissAddAnotherPopup(win, newId, newRepr) {
 }
 
 function clearRawId(triggeringLink) {
-    triggeringLink.parentNode.previousSibling.previousSibling.previousSibling.previousSibling.value = '';
-    triggeringLink.parentNode.innerHTML = '';
+    triggeringLink.parentNode.previousSibling.previousSibling.previousSibling.value = '';
+    triggeringLink.previousSibling.previousSibling.innerHTML = '';
     return false;
 }
 
