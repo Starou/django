@@ -3,8 +3,10 @@ import datetime
 from django.contrib.admin.util import lookup_field, display_for_field, label_for_field
 from django.contrib.admin.views.main import (ALL_VAR, EMPTY_CHANGELIST_VALUE,
     ORDER_VAR, PAGE_VAR, SEARCH_VAR)
+from django.contrib.admin.util import obj_label
 from django.contrib.admin.templatetags.admin_static import static
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils import formats
 from django.utils.html import escape, conditional_escape
@@ -221,8 +223,12 @@ def items_for_result(cl, result, form):
                 attr = pk
             value = result.serializable_value(attr)
             result_id = repr(force_unicode(value))[1:]
-            yield mark_safe(u'<%s%s><a href="%s"%s>%s</a></%s>' % \
-                (table_tag, row_class, url, (cl.is_popup and ' onclick="opener.dismissRelatedLookupPopup(window, %s); return false;"' % result_id or ''), conditional_escape(result_repr), table_tag))
+            result_name = obj_label(result)
+            result_url = reverse('admin:%s_%s_change' % (result._meta.app_label, result._meta.object_name.lower()),
+                                 args=(result.pk,),
+                                 current_app=cl.model_admin.admin_site.name)
+            yield mark_safe(u'<%s%s><a href="%s"%s>%s</a></%s>' %
+                (table_tag, row_class, url, (cl.is_popup and ' onclick="opener.dismissRelatedLookupPopup(' "window, %s, '%s', '%s'); return false;\"" % (result_id, result_url, result_name.replace("&#39;", r"\'")) or ''), conditional_escape(result_repr), table_tag))
         else:
             # By default the fields come from ModelAdmin.list_editable, but if we pull
             # the fields out of the form instead of list_editable custom admins

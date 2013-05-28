@@ -6,7 +6,7 @@ from django.forms.models import (modelform_factory, modelformset_factory,
     inlineformset_factory, BaseInlineFormSet)
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.admin import widgets, helpers
-from django.contrib.admin.util import unquote, flatten_fieldsets, get_deleted_objects, model_format_dict
+from django.contrib.admin.util import unquote, flatten_fieldsets, get_deleted_objects, model_format_dict, obj_label
 from django.contrib.admin.templatetags.admin_static import static
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_protect
@@ -826,6 +826,13 @@ class ModelAdmin(BaseModelAdmin):
                 return HttpResponseRedirect(request.path + "?_popup=1")
             else:
                 return HttpResponseRedirect(request.path)
+        elif "_popup" in request.POST:
+            # object changed via raw id link popup
+            obj_id = repr(force_unicode(obj._get_pk_val()))[1:]
+            obj_url = reverse('admin:%s_%s_change' % (opts.app_label, opts.object_name.lower()), args=(obj.pk,), current_app=self.admin_site.name)
+            label = obj_label(obj).replace("&#39;", r"\'")
+            return HttpResponse('<script type="text/javascript">opener.dismissRelatedLookupPopup('
+            "window, %s, '%s', '%s');</script>" % (obj_id, obj_url, label))
         elif "_saveasnew" in request.POST:
             msg = _('The %(name)s "%(obj)s" was added successfully. You may edit it again below.') % {'name': force_unicode(verbose_name), 'obj': obj}
             self.message_user(request, msg)
