@@ -9,10 +9,11 @@ from django.core.urlresolvers import reverse
 from django.forms.widgets import RadioFieldRenderer
 from django.forms.util import flatatt
 from django.utils.html import escape
-from django.utils.text import Truncator
+from django.utils.text import Truncator, truncate_words
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.utils.encoding import force_unicode
+from django.contrib.admin.util import obj_label
 
 
 class FilteredSelectMultiple(forms.SelectMultiple):
@@ -160,8 +161,7 @@ class ForeignKeyRawIdWidget(forms.TextInput):
             extra.append(u'<img src="%s" width="16" height="16" alt="%s" /></a>'
                             % (static('admin/img/selector-search.gif'), _('Lookup')))
         output = [super(ForeignKeyRawIdWidget, self).render(name, value, attrs)] + extra
-        if value:
-            output.append(self.label_for_value(value))
+        output.append(self.label_for_value(value, 'view_lookup_id_%s' % name))
         return mark_safe(u''.join(output))
 
     def base_url_parameters(self):
@@ -173,13 +173,44 @@ class ForeignKeyRawIdWidget(forms.TextInput):
         params.update({TO_FIELD_VAR: self.rel.get_related_field().name})
         return params
 
-    def label_for_value(self, value):
-        key = self.rel.get_related_field().name
-        try:
-            obj = self.rel.to._default_manager.using(self.db).get(**{key: value})
-            return '&nbsp;<strong>%s</strong>' % escape(Truncator(obj).words(14, truncate='...'))
-        except (ValueError, self.rel.to.DoesNotExist):
-            return ''
+    def label_for_value(self, value, name):
+        if value:
+            rel_to = self.rel.to
+            label, related_url = '', ''
+            key = self.rel.get_related_field().name
+            try:
+                obj = rel_to._default_manager.using(
+                        self.db).get(**{key: value})
+            except:
+                pass
+            else:
+                label = obj_label(obj)
+                if rel_to in self.admin_site._registry:
+                    try:
+                        related_url = reverse('admin:%s_%s_change' %
+                                                (obj._meta.app_label,
+                                                obj._meta.module_name),
+                                                args=(obj.pk,),
+                                                current_app=self.admin_site.name)
+                    except NoReverseMatch:
+                        raise
+            if label and related_url:
+                label = '<a href="%s" onclick="return showRelatedObjectPopup(this);">%s</a>' % (related_url, label)
+
+            return ('&nbsp;<strong id="%(name)s">%(label)s'
+                    '&nbsp;<a href="#" onclick="return clearRawId(this);">'
+                    '<img src="%(img_src)s" '
+                    'width="10" height="10" alt="%(clear)s" title="%(clear)s" />'
+                    '</a></strong>' % {'name': name, 
+                                       'label': label,
+                                       'img_src': static('admin/img/icon_deletelink.gif'),
+                                       'clear': _("Clear")}
+                   )
+        else:
+            # a placeholder that will be filled in
+            # JavaScript dismissRelatedLookupPopup()
+            return ' <strong id="%s"></strong>' % name
+
 
 class ManyToManyRawIdWidget(ForeignKeyRawIdWidget):
     """
@@ -201,8 +232,12 @@ class ManyToManyRawIdWidget(ForeignKeyRawIdWidget):
     def url_parameters(self):
         return self.base_url_parameters()
 
-    def label_for_value(self, value):
-        return ''
+    def label_for_value(self, value, name):
+        if not value:
+            return ''
+        value = [int(v) for v in value.split(',')]
+        objs = self.rel.to._default_manager.filter(pk__in=value)
+        return '&nbsp;<strong>%s</strong>' % ',&nbsp;'.join(truncate_words(obj, 14) for obj in objs)
 
     def value_from_datadict(self, data, files, name):
         value = data.get(name)

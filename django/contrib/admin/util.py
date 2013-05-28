@@ -6,7 +6,7 @@ from django.forms.forms import pretty_name
 from django.utils import formats
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
-from django.utils.text import capfirst
+from django.utils.text import capfirst, truncate_words
 from django.utils import timezone
 from django.utils.encoding import force_unicode, smart_unicode, smart_str
 from django.utils.translation import ungettext
@@ -331,6 +331,9 @@ def display_for_field(value, field):
         return formats.number_format(value)
     else:
         return smart_unicode(value)
+
+def obj_label(obj):
+    return escape(truncate_words(obj, 7))
 
 
 class NotRelationField(Exception):
