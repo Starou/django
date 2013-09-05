@@ -398,22 +398,23 @@ class Field(object):
     def get_validator_unique_lookup_type(self):
         return '%s__exact' % self.name
 
-    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH):
+    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None):
         """Returns choices with a default blank choices included, for use
         as SelectField choices for this field."""
         first_choice = include_blank and blank_choice or []
         if self.choices:
             return first_choice + list(self.choices)
         rel_model = self.rel.to
+        limit_choices_to = limit_choices_to and limit_choices_to or self.rel.limit_choices_to
         if hasattr(self.rel, 'get_related_field'):
             lst = [(getattr(x, self.rel.get_related_field().attname),
                         smart_text(x))
                    for x in rel_model._default_manager.complex_filter(
-                       self.rel.limit_choices_to)]
+                        limit_choices_to)]
         else:
             lst = [(x._get_pk_val(), smart_text(x))
                    for x in rel_model._default_manager.complex_filter(
-                       self.rel.limit_choices_to)]
+                       limit_choices_to)]
         return first_choice + lst
 
     def get_choices_default(self):
