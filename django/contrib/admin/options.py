@@ -1400,7 +1400,7 @@ class ModelAdmin(BaseModelAdmin):
             self.model._meta.get_field(field_name).rel.to)
         response_data = {}
         if target_model_admin and target_model_admin.has_change_permission(request):
-            for obj in target_model_admin.get_queryset(request).filter(id__in=ids):
+            for obj in target_model_admin.queryset(request).filter(id__in=ids):
                 response_data[obj.pk] = self.get_token(request, obj, field_name)
         return HttpResponse(
             json.dumps(response_data), content_type='application/json')
