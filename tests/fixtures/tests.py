@@ -39,7 +39,7 @@ class DumpDataAssertMixin(object):
 
     def _dumpdata_assert(self, args, output, format='json',
                          natural_foreign_keys=False, natural_primary_keys=False,
-                         use_base_manager=False, exclude_list=[], primary_keys=''):
+                         use_base_manager=False, exclude_list=[], primary_keys='', related=''):
         new_io = six.StringIO()
         management.call_command('dumpdata', *args, **{'format': format,
                                                       'stdout': new_io,
@@ -48,7 +48,8 @@ class DumpDataAssertMixin(object):
                                                       'use_natural_primary_keys': natural_primary_keys,
                                                       'use_base_manager': use_base_manager,
                                                       'exclude': exclude_list,
-                                                      'primary_keys': primary_keys})
+                                                      'primary_keys': primary_keys,
+                                                      'related': related})
         command_output = new_io.getvalue().strip()
         if format == "json":
             self.assertJSONEqual(command_output, output)
@@ -277,6 +278,21 @@ class FixtureLoadingTests(DumpDataAssertMixin, TestCase):
                 '[{"pk": 2, "model": "fixtures.article", "fields": {"headline": "Poker has no place on ESPN", "pub_date": "2006-06-16T12:00:00"}}, {"pk": 3, "model": "fixtures.article", "fields": {"headline": "Copyright is fine the way it is", "pub_date": "2006-06-16T14:00:00"}}]',
                 primary_keys='2,3'
             )
+
+    def test_dumpdata_with_related(self):
+        management.call_command('loaddata', 'fixture10.json', verbosity=0)
+        self._dumpdata_assert(
+            ['fixtures.Blog'],
+            '[{"fields": {"headline": "Django conquers world!", "pub_date": "2006-06-16T15:00:00"}, "model": "fixtures.article", "pk": 4}, {"fields": {"articles": [3, 2, 1], "featured": 4, "name": "Django\'s Great Blog"}, "model": "fixtures.blog", "pk": 1}]',
+            primary_keys='1',
+            related='featured'
+        )
+        self._dumpdata_assert(
+            ['fixtures.Blog'],
+            '[{"fields": {"headline": "Django conquers world!", "pub_date": "2006-06-16T15:00:00"}, "model": "fixtures.article", "pk": 4}, {"fields": {"headline": "Copyright is fine the way it is", "pub_date": "2006-06-16T14:00:00"}, "model": "fixtures.article", "pk": 3}, {"fields": {"headline": "Time to reform copyright", "pub_date": "2006-06-16T13:00:00"}, "model": "fixtures.article", "pk": 2}, {"fields": {"headline": "Poker has no place on ESPN", "pub_date": "2006-06-16T12:00:00"}, "model": "fixtures.article", "pk": 1}, {"fields": {"articles": [3, 2, 1], "featured": 4, "name": "Django\'s Great Blog"}, "model": "fixtures.blog", "pk": 1}]',
+            primary_keys='1',
+            related='featured,articles'
+        )
 
     def test_compress_format_loading(self):
         # Load fixture 4 (compressed), using format specification

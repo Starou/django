@@ -35,6 +35,11 @@ class Command(BaseCommand):
             help="Only dump objects with given primary keys. "
                  "Accepts a comma separated list of keys. "
                  "This option will only work when you specify one model."),
+        make_option('--related', dest='related',
+            help="Related objects to dump. "
+                 "Accepts a comma separated list of relations. "
+                 "(i.e.: foo,foo.bar,baz_set,baz_set.stuff"),
+        
     )
     help = ("Output the contents of the database as a fixture of the given "
             "format (using each model's default manager unless --all is "
@@ -55,11 +60,15 @@ class Command(BaseCommand):
         use_natural_primary_keys = options.get('use_natural_primary_keys')
         use_base_manager = options.get('use_base_manager')
         pks = options.get('primary_keys')
+        related = options.get('related')
 
         if pks:
             primary_keys = pks.split(',')
         else:
             primary_keys = []
+
+        if related:
+            related = related.split(',')
 
         excluded_apps = set()
         excluded_models = set()
@@ -118,6 +127,10 @@ class Command(BaseCommand):
                         continue
                     app_list[app_config] = None
 
+        if related:
+            if len(app_list) != 1 or len(app_list.values()[0]) != 1:
+                raise CommandError("you can only use --related option with one model")
+
         # Check that the serialization format exists; this is a shortcut to
         # avoid collating all the objects and _then_ failing.
         if format not in serializers.get_public_serializer_formats():
@@ -143,7 +156,19 @@ class Command(BaseCommand):
                     if primary_keys:
                         queryset = queryset.filter(pk__in=primary_keys)
                     for obj in queryset.iterator():
+                        if related:
+                            for rel_expression in related:
+                                for rel_obj in get_related_objects(obj, rel_expression):
+                                    yield rel_obj
                         yield obj
+        
+        def get_related_objects(obj, rel_expression):
+            rel_objs = [obj]
+            for fieldname in rel_expression.split('.'):
+                rel_objs = [getattr(rel_obj, fieldname) for rel_obj in rel_objs]
+                if hasattr(rel_objs[0], "all"):
+                    rel_objs = [rel for rel_obj in rel_objs for rel in rel_obj.all()]
+            return rel_objs
 
         try:
             self.stdout.ending = None
