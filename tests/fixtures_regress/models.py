@@ -66,7 +66,14 @@ class Article(models.Model):
 
 
 # Subclass of a model with a ManyToManyField for test_ticket_20820
-class SpecialArticle(Article):
+class CommonSpecialArticle(Article):
+    pass
+
+    class Meta:
+        abstract = True
+
+
+class SpecialArticle(CommonSpecialArticle):
     pass
 
 
